@@ -42,6 +42,9 @@ export const getEnv = () => {
    * Returns environment variables used to wire future API integration.
    * These are placeholders and not required for this scaffold to run.
    * REACT_APP_* variables must be provided by deployment if needed.
+   *
+   * Note: REACT_APP_JAMENDO_CLIENT_SECRET should not be used from the frontend.
+   * It is reserved for backend proxy usage only. See TODOs in Jamendo client.
    */
   return {
     apiBase: process.env.REACT_APP_API_BASE || "",
@@ -51,5 +54,6 @@ export const getEnv = () => {
     nodeEnv: process.env.REACT_APP_NODE_ENV || process.env.NODE_ENV || "development",
     features: process.env.REACT_APP_FEATURE_FLAGS || "",
     experiments: process.env.REACT_APP_EXPERIMENTS_ENABLED || "false",
+    jamendoClientId: process.env.REACT_APP_JAMENDO_CLIENT_ID || "",
   };
 };

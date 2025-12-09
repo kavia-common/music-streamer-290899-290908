@@ -1,33 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { theme, getEnv } from './theme';
+import { getFeaturedTracks, searchTracks } from './api/jamendo';
 
 /**
- * Mock data and sample track
- * Note: This app does not require a backend. We provide mock playlists/albums.
- * The audio player plays a local sample via a public URL.
+ * Jamendo-powered listings replace mock data.
+ * If env is missing or API fails, graceful fallback to empty results and friendly messages.
  */
-const MOCK_PLAYLISTS = [
-  { id: 'pl1', title: 'Daily Mix 1', subtitle: 'Indie • Chill', cover: '', type: 'playlist' },
-  { id: 'pl2', title: 'Focus Flow', subtitle: 'Deep work beats', cover: '', type: 'playlist' },
-  { id: 'pl3', title: 'Lo-Fi Vibes', subtitle: 'Lo-fi • Beats', cover: '', type: 'playlist' },
-  { id: 'pl4', title: 'Coding Session', subtitle: 'Electro • Ambient', cover: '', type: 'playlist' },
-  { id: 'pl5', title: 'Discover Weekly', subtitle: 'Fresh tracks', cover: '', type: 'playlist' },
-  { id: 'pl6', title: 'Throwback', subtitle: '90s • 00s', cover: '', type: 'playlist' },
-];
-
-const MOCK_ALBUMS = [
-  { id: 'al1', title: 'Ocean Drive', subtitle: 'Blue Skies', cover: '', type: 'album' },
-  { id: 'al2', title: 'Amber Lights', subtitle: 'Sunset Walks', cover: '', type: 'album' },
-  { id: 'al3', title: 'Midnight City', subtitle: 'Skyline', cover: '', type: 'album' },
-  { id: 'al4', title: 'Neon Nights', subtitle: 'After Hours', cover: '', type: 'album' },
-  { id: 'al5', title: 'Morning Brew', subtitle: 'Cafe Jazz', cover: '', type: 'album' },
-  { id: 'al6', title: 'Focus Beats', subtitle: 'Flow State', cover: '', type: 'album' },
-];
-
-// A small, license-free sample track (public domain/CC0 sample tone)
-const SAMPLE_TRACK_URL =
-  'https://cdn.pixabay.com/download/audio/2022/03/15/audio_7d8f1a8f42.mp3?filename=calm-meditation-112191.mp3';
 
 function Icon({ children, label }) {
   return <span role="img" aria-label={label} style={{ fontSize: 16 }}>{children}</span>;
@@ -80,7 +59,7 @@ function Topbar({ query, setQuery }) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="What do you want to listen to?"
+          placeholder="Search tracks on Jamendo…"
           aria-label="Search for songs, artists, albums"
         />
       </div>
@@ -89,7 +68,7 @@ function Topbar({ query, setQuery }) {
         <button
           className="btn"
           onClick={() => alert(
-            `TODO: Implement OAuth login\n\nDetected env:\napiBase: ${env.apiBase}\nbackendUrl: ${env.backendUrl}\nwsUrl: ${env.wsUrl}\nnodeEnv: ${env.nodeEnv}`
+            `TODO: Implement OAuth login\n\nDetected env:\napiBase: ${env.apiBase}\nbackendUrl: ${env.backendUrl}\nwsUrl: ${env.wsUrl}\nnodeEnv: ${env.nodeEnv}\njamendoClientId: ${env.jamendoClientId ? 'set' : 'missing'}\n\nNote: REACT_APP_JAMENDO_CLIENT_SECRET (if present) is reserved for backend proxy only.`
           )}
         >
           Sign in
@@ -110,10 +89,14 @@ function Section({ title, items, onSelect }) {
       </div>
       <div className="grid">
         {items.map((it) => (
-          <article key={it.id} className="card" onClick={() => onSelect(it)} aria-label={`${it.type} ${it.title}`}>
-            <div className="cover" />
-            <div className="title">{it.title}</div>
-            <div className="subtitle">{it.subtitle}</div>
+          <article key={it.id} className="card" onClick={() => onSelect(it)} aria-label={`track ${it.name}`}>
+            <div className="cover" style={{
+              backgroundImage: it.image ? `url(${it.image})` : undefined,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }} />
+            <div className="title">{it.name}</div>
+            <div className="subtitle">{it.artist_name}</div>
           </article>
         ))}
       </div>
@@ -131,10 +114,14 @@ function Player({ track, isPlaying, onToggle, onSeek, onVolume, audioRef, progre
   return (
     <footer className="player" role="contentinfo" aria-label="Audio player">
       <div className="track-info">
-        <div className="track-cover" />
+        <div className="track-cover" style={{
+          backgroundImage: track?.image ? `url(${track.image})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }} />
         <div className="track-meta">
-          <div className="track-title">{track.title}</div>
-          <div className="track-artist">{track.artist}</div>
+          <div className="track-title">{track?.name || track?.title || "—"}</div>
+          <div className="track-artist">{track?.artist_name || track?.artist || "—"}</div>
         </div>
       </div>
 
@@ -181,28 +168,79 @@ function Player({ track, isPlaying, onToggle, onSeek, onVolume, audioRef, progre
   );
 }
 
+/**
+ * Simple debounce hook for search inputs.
+ */
+function useDebouncedValue(value, delay = 400) {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return v;
+}
+
 // PUBLIC_INTERFACE
 function App() {
   /**
-   * High-level state for browsing and playing.
-   * In a future iteration, playlists/albums will be fetched via Spotify Web API.
-   * TODO: Integrate OAuth flow and fetch real data from Spotify using env vars.
+   * High-level state for browsing and playing using Jamendo API.
+   * TODO: Backend proxy for secret handling if needed.
    */
   const [active, setActive] = useState('home');
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState(null);
+  const debouncedQuery = useDebouncedValue(query, 400);
 
-  const [track] = useState({
-    id: 'sample',
-    title: 'Calm Meditation',
-    artist: 'Pixabay CC0',
-    src: SAMPLE_TRACK_URL,
-  });
+  // Listing state
+  const [featured, setFeatured] = useState({ items: [], loading: false, error: '' });
+  const [searchState, setSearchState] = useState({ items: [], loading: false, error: '' });
 
+  // Playback - selected jamendo track
+  const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef(null);
   const [progress, setProgress] = useState({ current: 0, duration: 0 });
 
+  // Load featured tracks on mount or when client id changes
+  const env = useMemo(() => getEnv(), []);
+  useEffect(() => {
+    let mounted = true;
+    async function run() {
+      setFeatured({ items: [], loading: true, error: '' });
+      const res = await getFeaturedTracks({ page: 1, pageSize: 30 });
+      if (!mounted) return;
+      if (res.error) {
+        setFeatured({ items: [], loading: false, error: 'Unable to load featured tracks. Please try again later.' });
+      } else {
+        setFeatured({ items: res.items, loading: false, error: '' });
+      }
+    }
+    if (env.jamendoClientId) run();
+    else setFeatured({ items: [], loading: false, error: 'Jamendo Client ID is missing. Set REACT_APP_JAMENDO_CLIENT_ID.' });
+    return () => { mounted = false; };
+  }, [env.jamendoClientId]);
+
+  // Perform search when debounced query changes
+  useEffect(() => {
+    let mounted = true;
+    async function run() {
+      if (!debouncedQuery) {
+        setSearchState({ items: [], loading: false, error: '' });
+        return;
+      }
+      setSearchState({ items: [], loading: true, error: '' });
+      const res = await searchTracks({ query: debouncedQuery, page: 1, pageSize: 30 });
+      if (!mounted) return;
+      if (res.error) {
+        setSearchState({ items: [], loading: false, error: 'Search failed or rate limited. Please try again.' });
+      } else {
+        setSearchState({ items: res.items, loading: false, error: '' });
+      }
+    }
+    if (env.jamendoClientId) run();
+    return () => { mounted = false; };
+  }, [debouncedQuery, env.jamendoClientId]);
+
+  // Attach audio events
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -222,29 +260,20 @@ function App() {
     };
   }, []);
 
+  // Play/pause effect
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     if (isPlaying) audio.play().catch(() => setIsPlaying(false));
     else audio.pause();
-  }, [isPlaying]);
+  }, [isPlaying, currentTrack]);
 
-  const onSelectCard = (it) => {
-    setSelected(it);
+  // Selecting a card should start playing that track
+  const onSelectCard = (track) => {
+    setCurrentTrack(track);
+    setIsPlaying(true);
     setActive('home');
   };
-
-  const filteredPlaylists = useMemo(() => {
-    if (!query) return MOCK_PLAYLISTS;
-    const q = query.toLowerCase();
-    return MOCK_PLAYLISTS.filter(p => p.title.toLowerCase().includes(q) || p.subtitle.toLowerCase().includes(q));
-  }, [query]);
-
-  const filteredAlbums = useMemo(() => {
-    if (!query) return MOCK_ALBUMS;
-    const q = query.toLowerCase();
-    return MOCK_ALBUMS.filter(a => a.title.toLowerCase().includes(q) || a.subtitle.toLowerCase().includes(q));
-  }, [query]);
 
   const handleTogglePlay = () => setIsPlaying((p) => !p);
   const handleSeek = (t) => {
@@ -257,24 +286,45 @@ function App() {
     if (audioRef.current) audioRef.current.volume = v;
   };
 
+  // Determine which items to display: if searching show search results, else featured
+  const listTitle = debouncedQuery ? `Search results for "${debouncedQuery}"` : "Featured on Jamendo";
+  const listItems = debouncedQuery ? searchState.items : featured.items;
+  const listLoading = debouncedQuery ? searchState.loading : featured.loading;
+  const listError = debouncedQuery ? searchState.error : featured.error;
+
   return (
     <div className="app">
       <Sidebar active={active} />
       <Topbar query={query} setQuery={setQuery} />
 
       <main className="content">
-        <Section title={selected ? `Because you listened to ${selected.title}` : 'Made For You'} items={filteredPlaylists} onSelect={onSelectCard} />
-        <Section title="Popular Albums" items={filteredAlbums} onSelect={onSelectCard} />
-        {/* TODO: Add more sections: Recently played, New releases */}
+        <div className="section-title" style={{ marginBottom: 12 }}>
+          <h2>{listTitle}</h2>
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+            {env.jamendoClientId ? '' : 'Set REACT_APP_JAMENDO_CLIENT_ID to enable live data'}
+          </span>
+        </div>
 
-        {/* TODO: Wire dynamic content with API_BASE when available:
-            const { apiBase } = getEnv();
-            fetch(`${apiBase}/playlists`)... */}
+        {listLoading && (
+          <div style={{ padding: 16, color: 'var(--color-text-muted)' }}>Loading tracks…</div>
+        )}
+        {!listLoading && listError && (
+          <div style={{ padding: 16, color: 'var(--color-error)' }}>{listError}</div>
+        )}
+        {!listLoading && !listError && (
+          <Section title="" items={listItems} onSelect={onSelectCard} />
+        )}
+
+        {/* TODO: Pagination controls and additional sections (e.g., New Releases) */}
       </main>
 
-      <audio ref={audioRef} src={track.src} preload="metadata" />
+      <audio
+        ref={audioRef}
+        src={currentTrack?.audio || ""}
+        preload="metadata"
+      />
       <Player
-        track={track}
+        track={currentTrack || { name: 'No track selected', artist_name: '', image: '' }}
         isPlaying={isPlaying}
         onToggle={handleTogglePlay}
         onSeek={handleSeek}
