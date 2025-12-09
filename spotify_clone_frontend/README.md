@@ -1,82 +1,60 @@
-# Lightweight React Template for KAVIA
+# Spotify-like Frontend Scaffold (Ocean Professional)
 
-This project provides a minimal React template with a clean, modern UI and minimal dependencies.
+This React app scaffolds a Spotify-like UI with:
+- Sidebar navigation (Home, Search, Your Library, Playlists)
+- Top bar with search input and profile/login button
+- Main content sections for playlists and albums
+- Fixed bottom audio player with basic controls and a sample local playback
 
-## Features
+No backend is required. The app uses mock data and a license-free sample audio track for local playback.
 
-- **Lightweight**: No heavy UI frameworks - uses only vanilla CSS and React
-- **Modern UI**: Clean, responsive design with KAVIA brand styling
-- **Fast**: Minimal dependencies for quick loading times
-- **Simple**: Easy to understand and modify
+## Run
 
-## Getting Started
+- npm start
+- App URL (preview): http://localhost:3000
 
-In the project directory, you can run:
+The container is designed for preview systems and CRA defaults.
 
-### `npm start`
+## Theme
 
-Runs the app in development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+The app applies the Ocean Professional theme:
+- Primary: #2563EB
+- Secondary: #F59E0B
+- Background: #f9fafb
+- Surface: #ffffff
+- Text: #111827
 
-### `npm test`
+See src/App.css and src/theme.js for details.
 
-Launches the test runner in interactive watch mode.
+## Environment Variables
 
-### `npm run build`
+These variables are read when available to wire future integration:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- REACT_APP_API_BASE
+- REACT_APP_BACKEND_URL
+- REACT_APP_FRONTEND_URL
+- REACT_APP_WS_URL
+- REACT_APP_NODE_ENV
+- REACT_APP_NEXT_TELEMETRY_DISABLED
+- REACT_APP_ENABLE_SOURCE_MAPS
+- REACT_APP_PORT
+- REACT_APP_TRUST_PROXY
+- REACT_APP_LOG_LEVEL
+- REACT_APP_HEALTHCHECK_PATH
+- REACT_APP_FEATURE_FLAGS
+- REACT_APP_EXPERIMENTS_ENABLED
 
-## Customization
+If not provided, the UI still runs with mock data.
 
-### Colors
+## TODOs (Future Integration)
 
-The main brand colors are defined as CSS variables in `src/App.css`:
+- OAuth: Implement Spotify OAuth login for real user profiles.
+- API: Fetch playlists/albums from REACT_APP_API_BASE instead of mock data.
+- Player: Hook real track playback and queue management.
+- Search: Query live results from backend or Spotify API.
+- Routing: Add React Router for multiple pages and deep links.
 
-```css
-:root {
-  --kavia-orange: #E87A41;
-  --kavia-dark: #1A1A1A;
-  --text-color: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --border-color: rgba(255, 255, 255, 0.1);
-}
-```
+## Notes
 
-### Components
-
-This template uses pure HTML/CSS components instead of a UI framework. You can find component styles in `src/App.css`. 
-
-Common components include:
-- Buttons (`.btn`, `.btn-large`)
-- Container (`.container`)
-- Navigation (`.navbar`)
-- Typography (`.title`, `.subtitle`, `.description`)
-
-## Learn More
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- This scaffold keeps dependencies minimal (React + CRA).
+- Sample track attribution: Pixabay CC0 sample URL used for demonstration only.
